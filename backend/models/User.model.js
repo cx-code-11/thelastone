@@ -1,28 +1,86 @@
-const mongoose = require('mongoose');
-const bcrypt   = require('bcryptjs');
+const pool    = require('../db/pool');
+const bcrypt  = require('bcryptjs');
 
-const userSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, lowercase: true, trim: true, unique: true },
-    password: { type: String, required: true, minlength: 6, select: false },
-    role: {
-      type: String,
-      enum: ['admin', 'team-head', 'member', 'client'],
-      default: 'member',
-    },
+const User = {
+  /** Find by id (no password) */
+  async findById(id) {
+    const { rows } = await pool.query(
+      'SELECT id, name, email, role, created_at, updated_at FROM users WHERE id = $1',
+      [id]
+    );
+    return rows[0] || null;
   },
-  { timestamps: true }
-);
 
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
-});
+  /** Find by email — optionally include password hash */
+  async findByEmail(email, withPassword = false) {
+    const cols = withPassword
+      ? 'id, name, email, password, role, created_at, updated_at'
+      : 'id, name, email, role, created_at, updated_at';
+    const { rows } = await pool.query(
+      `SELECT ${cols} FROM users WHERE email = $1`,
+      [email.toLowerCase()]
+    );
+    return rows[0] || null;
+  },
 
-userSchema.methods.comparePassword = async function (candidate) {
-  return bcrypt.compare(candidate, this.password);
+  /** List all users except admins */
+  async findNonAdmins() {
+    const { rows } = await pool.query(
+      `SELECT id, name, email, role, created_at, updated_at
+       FROM users WHERE role <> 'admin' ORDER BY created_at DESC`
+    );
+    return rows;
+  },
+
+  /** List all users (for dropdowns) */
+  async findAll() {
+    const { rows } = await pool.query(
+      'SELECT id, name, email, role FROM users ORDER BY name ASC'
+    );
+    return rows;
+  },
+
+  /** Find one matching role */
+  async findOneByRole(role) {
+    const { rows } = await pool.query(
+      'SELECT id FROM users WHERE role = $1 LIMIT 1',
+      [role]
+    );
+    return rows[0] || null;
+  },
+
+  /** Create user (hashes password) */
+  async create({ name, email, password, role = 'member' }) {
+    const hash = await bcrypt.hash(password, 12);
+    const { rows } = await pool.query(
+      `INSERT INTO users (name, email, password, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role, created_at, updated_at`,
+      [name, email.toLowerCase(), hash, role]
+    );
+    return rows[0];
+  },
+
+  /** Update role */
+  async updateRole(id, role) {
+    const { rows } = await pool.query(
+      `UPDATE users SET role = $1 WHERE id = $2
+       RETURNING id, name, email, role, created_at, updated_at`,
+      [role, id]
+    );
+    return rows[0] || null;
+  },
+
+  /** Delete */
+  async delete(id) {
+    const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    return rowCount > 0;
+  },
+
+  /** Compare plain password with stored hash */
+  async comparePassword(plainPassword, hash) {
+    return bcrypt.compare(plainPassword, hash);
+  },
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

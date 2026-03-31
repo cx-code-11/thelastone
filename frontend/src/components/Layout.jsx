@@ -152,6 +152,19 @@ export default function Layout() {
         <main className="flex-1 overflow-auto page-enter">
           <Outlet />
         </main>
+
+        {/* ── Copyright footer ── */}
+        <footer className="shrink-0 px-4 py-3 flex items-center justify-center gap-2"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.01)' }}>
+          <span className="text-[11px] font-mono" style={{ color: 'rgba(241,245,249,0.25)' }}>
+            © {new Date().getFullYear()}
+          </span>
+          <span className="w-1 h-1 rounded-full" style={{ background: 'rgba(99,102,241,0.5)' }} />
+          <span className="text-[11px] font-mono font-semibold tracking-wide"
+            style={{ color: 'rgba(99,102,241,0.55)' }}>
+            Made by CipherMutex Team
+          </span>
+        </footer>
       </div>
     </div>
   )
