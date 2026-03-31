@@ -1,53 +1,28 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt   = require('bcryptjs');
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: [true, 'Name is required'],
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: [true, 'Email is required'],
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: [true, 'Password is required'],
-      minlength: 6,
-      select: false, // Don't return password by default
-    },
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, lowercase: true, trim: true, unique: true },
+    password: { type: String, required: true, minlength: 6, select: false },
     role: {
       type: String,
-      enum: ['admin', 'team', 'client'],
-      default: 'client',
-    },
-    tenant: {
-      type: String,
-      required: [true, 'Tenant is required'],
-      lowercase: true,
-      trim: true,
+      enum: ['admin', 'team-head', 'member', 'client'],
+      default: 'member',
     },
   },
   { timestamps: true }
 );
 
-// Compound unique index: email must be unique per tenant
-userSchema.index({ email: 1, tenant: 1 }, { unique: true });
-
-// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function (candidate) {
+  return bcrypt.compare(candidate, this.password);
 };
 
 module.exports = mongoose.model('User', userSchema);

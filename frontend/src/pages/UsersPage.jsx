@@ -1,202 +1,231 @@
 import { useState, useEffect } from 'react'
 import api from '../utils/api'
 
-const ROLE_CONFIG = {
-  admin:  { classes: 'bg-rose-100 text-rose-700',    label: 'Admin' },
-  team:   { classes: 'bg-blue-100 text-blue-700',    label: 'Team' },
-  client: { classes: 'bg-ink-100 text-ink-600',      label: 'Client' },
+const ROLE_OPTIONS = ['team-head', 'member', 'client']
+const ROLE_CFG = {
+  'team-head': { label: '👑 Team Head', badge: 'badge-cyan'   },
+  member:      { label: '👤 Member',    badge: 'badge-green'  },
+  client:      { label: '🏢 Client',   badge: 'badge-amber'  },
 }
 
 export default function UsersPage() {
-  const [users, setUsers]     = useState([])
+  const [users,   setUsers]   = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState('')
-  const [showForm, setShowForm] = useState(false)
-  const [deleting, setDeleting] = useState(null)
+  const [error,   setError]   = useState('')
+  const [showModal, setShowModal]       = useState(false)
+  const [deleting, setDeleting]         = useState(null)
+  const [updatingRole, setUpdatingRole] = useState(null)
 
-  const fetchUsers = async () => {
+  useEffect(() => {
+    api.get('/users')
+      .then(res => setUsers(res.data.users))
+      .catch(() => setError('Failed to load users.'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleDelete = async (id, name) => {
+    if (!confirm(`Delete "${name}"?`)) return
+    setDeleting(id)
+    try { await api.delete(`/users/${id}`); setUsers(prev => prev.filter(u => u._id !== id)) }
+    catch (err) { alert(err.response?.data?.message || 'Delete failed.') }
+    finally { setDeleting(null) }
+  }
+  const handleRoleChange = async (id, role) => {
+    setUpdatingRole(id)
     try {
-      const res = await api.get('/users')
-      setUsers(res.data.users)
-    } catch (err) {
-      setError('Failed to load users.')
-    } finally {
-      setLoading(false)
-    }
+      const res = await api.patch(`/users/${id}/role`, { role })
+      setUsers(prev => prev.map(u => u._id === id ? { ...u, role: res.data.user.role } : u))
+    } catch (err) { alert(err.response?.data?.message || 'Failed.') }
+    finally { setUpdatingRole(null) }
   }
 
-  useEffect(() => { fetchUsers() }, [])
-
-  const handleDelete = async (userId, userName) => {
-    if (!confirm(`Delete user "${userName}"? This cannot be undone.`)) return
-    setDeleting(userId)
-    try {
-      await api.delete(`/users/${userId}`)
-      setUsers(prev => prev.filter(u => u._id !== userId))
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete user.')
-    } finally {
-      setDeleting(null)
-    }
-  }
-
-  const handleUserCreated = (newUser) => {
-    setUsers(prev => [newUser, ...prev])
-    setShowForm(false)
-  }
-
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-7 h-7 border-2 border-ink-200 border-t-ink-600 rounded-full animate-spin" />
-    </div>
-  )
+  if (loading) return <Spinner />
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6 fade-up">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 fade-up">
         <div>
-          <h1 className="font-display text-3xl text-ink-900">Users</h1>
-          <p className="text-ink-500 text-sm mt-1">{users.length} member{users.length !== 1 ? 's' : ''} in this workspace</p>
+          <h1 className="font-display font-bold text-2xl sm:text-3xl text-white">Users</h1>
+          <p className="text-xs font-mono mt-1" style={{ color: 'rgba(241,245,249,0.4)' }}>
+            {users.length} registered · admin manages all access
+          </p>
         </div>
-        <button onClick={() => setShowForm(s => !s)} className="btn-primary">
-          {showForm ? '✕ Cancel' : '+ New User'}
+        <button onClick={() => setShowModal(true)} className="btn-primary gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          New User
         </button>
       </div>
 
-      {/* Create user form */}
-      {showForm && (
-        <div className="card p-6 mb-6 fade-up">
-          <h2 className="font-body font-semibold text-ink-800 mb-4">Create User</h2>
-          <CreateUserForm onSuccess={handleUserCreated} onCancel={() => setShowForm(false)} />
-        </div>
-      )}
+      {error && <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>⚠️ {error}</div>}
 
-      {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-lg px-4 py-3 mb-4">
-          <p className="text-rose-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* Users table */}
       <div className="card overflow-hidden fade-up">
         {users.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-ink-400 text-sm">No users yet. Create one above.</p>
+          <div className="p-16 text-center">
+            <p className="text-4xl mb-3">👥</p>
+            <p className="font-medium text-white mb-1">No users yet</p>
+            <p className="text-sm mb-4" style={{ color: 'rgba(241,245,249,0.4)' }}>Add your first team member or client.</p>
+            <button onClick={() => setShowModal(true)} className="btn-primary">Add User</button>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr className="bg-ink-50 border-b border-ink-100">
-                <th className="text-left px-5 py-3 text-xs font-medium text-ink-500 uppercase tracking-wider">Name</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-ink-500 uppercase tracking-wider">Email</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-ink-500 uppercase tracking-wider">Role</th>
-                <th className="text-left px-5 py-3 text-xs font-medium text-ink-500 uppercase tracking-wider">Joined</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-50 stagger">
-              {users.map(user => (
-                <tr key={user._id} className="group hover:bg-ink-50 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-ink-200 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-medium text-ink-700 uppercase">{user.name.charAt(0)}</span>
-                      </div>
-                      <span className="text-sm font-medium text-ink-800">{user.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-ink-600 font-mono text-xs">{user.email}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${ROLE_CONFIG[user.role]?.classes || ''}`}>
-                      {ROLE_CONFIG[user.role]?.label || user.role}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-ink-400">
-                    {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </td>
-                  <td className="px-5 py-3.5 text-right">
-                    <button
-                      onClick={() => handleDelete(user._id, user.name)}
-                      disabled={deleting === user._id}
-                      className="opacity-0 group-hover:opacity-100 text-ink-300 hover:text-rose-500 transition-all disabled:opacity-50"
-                      title="Delete user"
-                    >
-                      {deleting === user._id ? (
-                        <div className="w-4 h-4 border-2 border-ink-200 border-t-ink-500 rounded-full animate-spin" />
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      )}
-                    </button>
-                  </td>
-                </tr>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                    {['User', 'Email', 'Role', 'Joined', ''].map(th => (
+                      <th key={th} className="text-left px-5 py-3 text-[10px] font-mono uppercase tracking-widest"
+                        style={{ color: 'rgba(241,245,249,0.3)' }}>{th}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u._id} className="group transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.025)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white"
+                            style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)', boxShadow: '0 0 10px rgba(99,102,241,0.3)' }}>
+                            {u.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-sm font-semibold text-white">{u.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs font-mono" style={{ color: 'rgba(241,245,249,0.5)' }}>{u.email}</span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {updatingRole === u._id
+                          ? <div className="w-4 h-4 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                          : <select value={u.role} onChange={e => handleRoleChange(u._id, e.target.value)}
+                              className={`text-[10px] font-mono font-bold rounded-full cursor-pointer border-0 outline-none py-0.5 pl-2 pr-1 ${ROLE_CFG[u.role]?.badge || 'badge-indigo'}`}
+                              style={{ background: 'transparent' }}>
+                              {ROLE_OPTIONS.map(r => <option key={r} value={r}>{ROLE_CFG[r]?.label || r}</option>)}
+                            </select>
+                        }
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs font-mono" style={{ color: 'rgba(241,245,249,0.35)' }}>
+                          {new Date(u.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {deleting === u._id
+                          ? <div className="w-4 h-4 rounded-full border-2 border-red-500/20 border-t-red-500 animate-spin ml-auto" />
+                          : <button onClick={() => handleDelete(u._id, u.name)}
+                              className="opacity-0 group-hover:opacity-100 transition-all btn-danger text-[10px] px-2.5 py-1">
+                              🗑 delete
+                            </button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y" style={{ '--divide-color': 'rgba(255,255,255,0.06)' }}>
+              {users.map(u => (
+                <div key={u._id} className="p-4 flex items-center gap-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center font-bold text-sm text-white"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #4f46e5)' }}>
+                    {u.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{u.name}</p>
+                    <p className="text-xs font-mono truncate" style={{ color: 'rgba(241,245,249,0.4)' }}>{u.email}</p>
+                    <span className={`${ROLE_CFG[u.role]?.badge || 'badge-indigo'} mt-1 inline-flex text-[9px]`}>{ROLE_CFG[u.role]?.label}</span>
+                  </div>
+                  <button onClick={() => handleDelete(u._id, u.name)} className="btn-danger px-2.5 py-1.5 text-xs shrink-0">🗑</button>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
+      </div>
+
+      {showModal && <CreateUserModal onClose={() => setShowModal(false)} onCreated={u => { setUsers(prev => [u, ...prev]); setShowModal(false) }} />}
+    </div>
+  )
+}
+
+function CreateUserModal({ onClose, onCreated }) {
+  const [form, setForm]   = useState({ name: '', email: '', password: '', role: 'member' })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault(); setError(''); setLoading(true)
+    try { const res = await api.post('/users', form); onCreated(res.data.user) }
+    catch (err) { setError(err.response?.data?.message || 'Failed to create.') }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden modal-in"
+        style={{ background: '#0d1120', border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 50px rgba(99,102,241,0.15), 0 30px 60px rgba(0,0,0,0.5)' }}>
+        <div className="h-1 w-full" style={{ background: 'linear-gradient(to right, #6366f1, #22d3ee)' }} />
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="font-display font-bold text-xl text-white">+ New User</h2>
+              <p className="text-[10px] font-mono mt-0.5" style={{ color: 'rgba(241,245,249,0.4)' }}>Add someone to the workspace</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-sm"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(241,245,249,0.5)' }}>✕</button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="label">Full Name *</label>
+              <input className="input" placeholder="Jane Doe" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required autoFocus />
+            </div>
+            <div>
+              <label className="label">Email *</label>
+              <input type="email" className="input" placeholder="jane@company.com" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Password *</label>
+              <div className="relative">
+                <input type={showPwd ? 'text' : 'password'} className="input pr-14" placeholder="Min. 6 chars"
+                  value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} required minLength={6} />
+                <button type="button" onClick={() => setShowPwd(p => !p)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono px-2 py-0.5 rounded-lg"
+                  style={{ color: 'rgba(241,245,249,0.4)', background: 'rgba(255,255,255,0.06)' }}>
+                  {showPwd ? 'hide' : 'show'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="label">Role *</label>
+              <select value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} className="input">
+                <option value="team-head">👑 Team Head — sees all tasks</option>
+                <option value="member">👤 Member — manages own tasks</option>
+                <option value="client">🏢 Client — views assigned tasks</option>
+              </select>
+            </div>
+            {error && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5' }}>⚠️ {error}</div>}
+            <div className="flex gap-3 pt-1">
+              <button type="submit" disabled={loading} className="btn-primary gap-2">
+                {loading ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>Creating…</> : '+ Create User'}
+              </button>
+              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   )
 }
 
-function CreateUserForm({ onSuccess, onCancel }) {
-  const [form, setForm]   = useState({ name: '', email: '', password: '', role: 'client' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleChange = e => setForm(p => ({ ...p, [e.target.name]: e.target.value }))
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const res = await api.post('/users', form)
-      onSuccess(res.data.user)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create user.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-      <div>
-        <label className="label">Full Name *</label>
-        <input name="name" type="text" className="input" placeholder="Jane Doe" value={form.name} onChange={handleChange} required />
-      </div>
-      <div>
-        <label className="label">Email *</label>
-        <input name="email" type="email" className="input" placeholder="jane@company.com" value={form.email} onChange={handleChange} required />
-      </div>
-      <div>
-        <label className="label">Password *</label>
-        <input name="password" type="password" className="input" placeholder="Min. 6 chars" value={form.password} onChange={handleChange} required minLength={6} />
-      </div>
-      <div>
-        <label className="label">Role *</label>
-        <select name="role" value={form.role} onChange={handleChange} className="input">
-          <option value="client">Client</option>
-          <option value="team">Team</option>
-          <option value="admin">Admin</option>
-        </select>
-      </div>
-
-      {error && (
-        <div className="col-span-2 bg-rose-50 border border-rose-200 rounded-lg px-4 py-3">
-          <p className="text-rose-600 text-sm">{error}</p>
-        </div>
-      )}
-
-      <div className="col-span-2 flex gap-3 pt-1">
-        <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
-          {loading ? <><div className="w-4 h-4 border-2 border-ink-400 border-t-white rounded-full animate-spin"/>Creating…</> : 'Create User'}
-        </button>
-        <button type="button" onClick={onCancel} className="btn-secondary">Cancel</button>
-      </div>
-    </form>
-  )
+function Spinner() {
+  return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" /></div>
 }

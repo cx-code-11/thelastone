@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import api, { getTenant } from '../utils/api'
+import api from '../utils/api'
 
 const AuthContext = createContext(null)
 
@@ -9,11 +9,9 @@ export const AuthProvider = ({ children }) => {
   })
   const [loading, setLoading] = useState(true)
 
-  // Verify token is still valid on mount
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) { setLoading(false); return }
-
     api.get('/auth/me')
       .then(res => setUser(res.data.user))
       .catch(() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null) })
@@ -35,10 +33,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null)
   }, [])
 
-  const tenant = getTenant()
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, tenant }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
