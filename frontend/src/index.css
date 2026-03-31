@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background-color: #f5f3f0;
+    color: #1a1510;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-ink-900 text-ink-50 px-5 py-2.5 rounded-lg font-body font-medium text-sm
+           hover:bg-ink-700 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:scale-100;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-ink-300 text-ink-700 px-5 py-2.5 rounded-lg font-body font-medium text-sm
+           hover:bg-ink-100 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-rose-500 text-white px-5 py-2.5 rounded-lg font-body font-medium text-sm
+           hover:bg-rose-400 active:scale-95 transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .input {
+    @apply w-full bg-white border border-ink-200 rounded-lg px-4 py-2.5
+           text-ink-900 font-body text-sm placeholder:text-ink-400
+           focus:outline-none focus:ring-2 focus:ring-ink-400 focus:border-transparent
+           transition-all duration-150;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-ink-100 shadow-sm;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-ink-500 uppercase tracking-widest mb-1.5;
+  }
+}
+
+/* Fade-in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fadeUp 0.3s ease forwards;
+}
+
+/* Staggered children */
+.stagger > * {
+  opacity: 0;
+  animation: fadeUp 0.3s ease forwards;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.30s; }
+.stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger > *:nth-child(8) { animation-delay: 0.40s; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #e8e4dd; }
+::-webkit-scrollbar-thumb { background: #928475; border-radius: 3px; }
